@@ -624,7 +624,6 @@ int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars )
 {
     Prove_Params_t * pParams = (Prove_Params_t *)pPars;
     Abc_Ntk_t * pNtk = * ppNtk, * pNtkTemp;
-    Abc_Obj_t * pObj, * pFanin;
     Ivy_Man_t * pMan;
     Aig_Man_t * pMan2;
     int RetValue;
@@ -642,15 +641,6 @@ int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars )
     {
         pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1, 0 );
         Abc_NtkDelete( pNtkTemp );
-    }
- 
-    // check the case when the 0000 simulation pattern detect the bug
-    pObj = Abc_NtkPo(pNtk,0);
-    pFanin = Abc_ObjFanin0(pObj);
-    if ( Abc_ObjFanin0(pObj)->fPhase != (unsigned)Abc_ObjFaninC0(pObj) )
-    {
-        pNtk->pModel = ABC_CALLOC( int, Abc_NtkCiNum(pNtk) );
-        return 0;
     }
 
     // changed in "src\sat\fraig\fraigMan.c"
