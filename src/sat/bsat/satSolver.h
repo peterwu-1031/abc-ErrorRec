@@ -86,8 +86,7 @@ extern void        sat_solver_store_write( sat_solver * s, char * pFileName );
 extern void        sat_solver_store_free( sat_solver * s );
 extern void        sat_solver_store_mark_roots( sat_solver * s );
 extern void        sat_solver_store_mark_clauses_a( sat_solver * s );
-extern void *      sat_solver_store_release( sat_solver * s ); 
-
+extern void *      sat_solver_store_release( sat_solver * s );
 //=================================================================================================
 // Solver representation:
 
@@ -103,6 +102,8 @@ struct sat_solver_t
     int         cap;           // size of varmaps
     int         qhead;         // Head index of queue.
     int         qtail;         // Tail index of queue.
+    // Yu-Cheng added
+    int *       pArray;        // PIs' ID in SAT
 
     // clauses
     Sat_Mem_t   Mem;
