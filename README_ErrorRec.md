@@ -1,4 +1,4 @@
-# cec -a <netlist1> <netlist2> 
+# cec -a netlist1.v netlist2.v 
 
 1. All output files will be generated in “cec_output” folder. 
 
