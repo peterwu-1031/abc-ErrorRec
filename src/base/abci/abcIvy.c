@@ -25,6 +25,8 @@
 #include "proof/fraig/fraig.h"
 #include "map/mio/mio.h"
 #include "aig/aig/aig.h"
+// Yu-Cheng added (for sat_solver)
+#include "sat/bsat/satSolver.h"
 
 #ifdef ABC_USE_CUDD
 #include "bdd/extrab/extraBdd.h"
@@ -502,7 +504,7 @@ Abc_Ntk_t * Abc_NtkIvyFraig( Abc_Ntk_t * pNtk, int nConfLimit, int fDoSparse, in
 int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
 {
     Prove_Params_t * pParams = (Prove_Params_t *)pPars;
-    Abc_Ntk_t * pNtk = *ppNtk, * pNtkTemp;
+    Abc_Ntk_t * pNtk = * ppNtk, * pNtkTemp;
     Abc_Obj_t * pObj, * pFanin;
     Ivy_Man_t * pMan;
     Aig_Man_t * pMan2;
@@ -538,6 +540,129 @@ int Abc_NtkIvyProve( Abc_Ntk_t ** ppNtk, void * pPars )
 //    RetValue = Abc_NtkMiterSat( pNtk, 2*(ABC_INT64_T)pParams->nMiteringLimitStart, (ABC_INT64_T)0, 0, NULL, NULL );
     pMan2 = Abc_NtkToDar( pNtk, 0, 0 );
     RetValue = Fra_FraigSat( pMan2, (ABC_INT64_T)pParams->nMiteringLimitStart, (ABC_INT64_T)0, 0, 0, 0, 1, 0, 0, 0 ); 
+    pNtk->pModel = (int *)pMan2->pData, pMan2->pData = NULL;
+    Aig_ManStop( pMan2 );
+//    pNtk->pModel = Aig_ManReleaseData( pMan2 );
+    if ( RetValue >= 0 )
+        return RetValue;
+
+    // apply AIG rewriting
+    if ( pParams->fUseRewriting && Abc_NtkNodeNum(pNtk) > 500 )
+    {
+//        abctime clk = Abc_Clock();
+//printf( "Before rwsat = %d. ", Abc_NtkNodeNum(pNtk) );
+        pParams->fUseRewriting = 0;
+        pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
+        Abc_NtkDelete( pNtkTemp );
+        Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
+        pNtk = Abc_NtkBalance( pNtkTemp = pNtk, 0, 0, 0 );          
+        Abc_NtkDelete( pNtkTemp );
+        Abc_NtkRewrite( pNtk, 0, 0, 0, 0, 0 );
+        Abc_NtkRefactor( pNtk, 10, 16, 0, 0, 0, 0 );
+//printf( "After rwsat = %d. ", Abc_NtkNodeNum(pNtk) );
+//ABC_PRT( "Time", Abc_Clock() - clk );
+    }
+
+    // convert ABC network into IVY network
+    pMan = Abc_NtkIvyBefore( pNtk, 0, 0 );
+
+    // solve the CEC problem
+    RetValue = Ivy_FraigProve( &pMan, pParams );
+//    RetValue = -1;
+
+    // convert IVY network into ABC network    
+    pNtk = Abc_NtkIvyAfter( pNtkTemp = pNtk, pMan, 0, 0 );
+    Abc_NtkDelete( pNtkTemp );
+    // transfer model if given
+    pNtk->pModel = (int *)pMan->pData; pMan->pData = NULL;
+    Ivy_ManStop( pMan );
+
+    // try to prove it using brute force SAT with good CNF encoding
+    if ( RetValue < 0 )
+    {
+        pMan2 = Abc_NtkToDar( pNtk, 0, 0 );
+        // dump the miter before entering high-effort solving
+        if ( pParams->fVerbose )
+        {
+            char pFileName[100];
+            sprintf( pFileName, "cecmiter.aig" );
+            Ioa_WriteAiger( pMan2, pFileName, 0, 0 );
+            printf( "Intermediate reduced miter is written into file \"%s\".\n", pFileName );
+        }
+        RetValue = Fra_FraigSat( pMan2, pParams->nMiteringLimitLast, 0, 0, 0, 0, 0, 0, 0, pParams->fVerbose ); 
+        pNtk->pModel = (int *)pMan2->pData, pMan2->pData = NULL;
+        Aig_ManStop( pMan2 );
+    }
+
+    // try to prove it using brute force BDDs
+#ifdef ABC_USE_CUDD
+    if ( RetValue < 0 && pParams->fUseBdds )
+    {
+        if ( pParams->fVerbose )
+        {
+            printf( "Attempting BDDs with node limit %d ...\n", pParams->nBddSizeLimit );
+            fflush( stdout );
+        }
+        pNtk = Abc_NtkCollapse( pNtkTemp = pNtk, pParams->nBddSizeLimit, 0, pParams->fBddReorder, 0, 0, 0 );
+        if ( pNtk )   
+        {
+            Abc_NtkDelete( pNtkTemp );
+            RetValue = ( (Abc_NtkNodeNum(pNtk) == 1) && (Abc_ObjFanin0(Abc_NtkPo(pNtk,0))->pData == Cudd_ReadLogicZero((DdManager *)pNtk->pManFunc)) );
+        }
+        else 
+            pNtk = pNtkTemp;
+    }
+#endif
+
+    // return the result
+    *ppNtk = pNtk;
+    return RetValue;
+}
+
+// Yu-Cheng added
+int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars )
+{
+    Prove_Params_t * pParams = (Prove_Params_t *)pPars;
+    Abc_Ntk_t * pNtk = * ppNtk, * pNtkTemp;
+    Abc_Obj_t * pObj, * pFanin;
+    Ivy_Man_t * pMan;
+    Aig_Man_t * pMan2;
+    int RetValue;
+    // Yu-Cheng added
+    sat_solver * pSat2 = * pSat;
+    //================
+    assert( Abc_NtkIsStrash(pNtk) || Abc_NtkIsLogic(pNtk) );
+    // experiment with various parameters settings
+//    pParams->fUseBdds = 1;
+//    pParams->fBddReorder = 1;
+//    pParams->nTotalBacktrackLimit = 10000;
+ 
+    // strash the network if it is not strashed already
+    if ( !Abc_NtkIsStrash(pNtk) )
+    {
+        pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1, 0 );
+        Abc_NtkDelete( pNtkTemp );
+    }
+ 
+    // check the case when the 0000 simulation pattern detect the bug
+    pObj = Abc_NtkPo(pNtk,0);
+    pFanin = Abc_ObjFanin0(pObj);
+    if ( Abc_ObjFanin0(pObj)->fPhase != (unsigned)Abc_ObjFaninC0(pObj) )
+    {
+        pNtk->pModel = ABC_CALLOC( int, Abc_NtkCiNum(pNtk) );
+        return 0;
+    }
+
+    // changed in "src\sat\fraig\fraigMan.c"
+    //    pParams->nMiteringLimitStart  = 300;    // starting mitering limit
+    // to be
+    //    pParams->nMiteringLimitStart  = 5000;    // starting mitering limit
+
+    // if SAT only, solve without iteration
+//    RetValue = Abc_NtkMiterSat( pNtk, 2*(ABC_INT64_T)pParams->nMiteringLimitStart, (ABC_INT64_T)0, 0, NULL, NULL );
+    pMan2 = Abc_NtkToDar( pNtk, 0, 0 );
+    RetValue = Fra_FraigSatAll( &pSat2, pMan2, (ABC_INT64_T)pParams->nMiteringLimitStart, (ABC_INT64_T)0, 0, 0, 0, 1, 0, 0, 0 );
+    *pSat = pSat2; 
     pNtk->pModel = (int *)pMan2->pData, pMan2->pData = NULL;
     Aig_ManStop( pMan2 );
 //    pNtk->pModel = Aig_ManReleaseData( pMan2 );
