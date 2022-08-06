@@ -642,6 +642,7 @@ int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars )
         pNtk = Abc_NtkStrash( pNtkTemp = pNtk, 0, 1, 0 );
         Abc_NtkDelete( pNtkTemp );
     }
+ 
 
     // changed in "src\sat\fraig\fraigMan.c"
     //    pParams->nMiteringLimitStart  = 300;    // starting mitering limit
@@ -658,7 +659,6 @@ int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars )
 //    pNtk->pModel = Aig_ManReleaseData( pMan2 );
     if ( RetValue >= 0 )
         return RetValue;
-
     // apply AIG rewriting
     if ( pParams->fUseRewriting && Abc_NtkNodeNum(pNtk) > 500 )
     {

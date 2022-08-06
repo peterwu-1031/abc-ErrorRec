@@ -41,7 +41,7 @@ ABC_NAMESPACE_IMPL_START
 static void  Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
 extern void  Abc_NtkVerifyReportErrorSeq( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, int nFrames );
 // Yu-Cheng added
-static int   Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat );
+static void  Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
 extern ABC_DLL int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars );
 
 ////////////////////////////////////////////////////////////////////////
@@ -394,7 +394,8 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
         }
         Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
         if ( pMiter->pModel )
-            not_done = Abc_NtkVerifyErrorRec( pNtk1, pNtk2, pMiter->pModel, &pSat );
+            Abc_NtkVerifyErrorRec( pNtk1, pNtk2, pMiter->pModel );
+        not_done = pSat->temp;
         times += 1;
     }
     sat_solver_delete( pSat );
@@ -974,18 +975,15 @@ void Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMode
 ***********************************************************************/
 // Yu-Cheng added
 // Revised version of Abc_NtkVerifyReportError
-int Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat )
+void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
 {
     Vec_Ptr_t * vNodes;
     Abc_Obj_t * pNode;
     int * pValues1, * pValues2;
     int nErrors, i, j=0;
-    sat_solver * s = * pSat;
     int Node[Abc_NtkCoNum(pNtk1)];
-    lit Lits[Abc_NtkCiNum(pNtk1)];
     FILE *f;
-    char filename[32];
-    int temp;
+    char filename[100];
 
     assert( Abc_NtkCiNum(pNtk1) == Abc_NtkCiNum(pNtk2) );
     assert( Abc_NtkCoNum(pNtk1) == Abc_NtkCoNum(pNtk2) );
@@ -1040,7 +1038,6 @@ int Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, s
             }
         }
         printf( "\n" );
-        Vec_PtrFree( vNodes );
         // write patterns to files
         for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
         {
@@ -1049,21 +1046,9 @@ int Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, s
         fprintf(f, "\n");
         fclose(f);
     }
+    Vec_PtrFree( vNodes );
     ABC_FREE( pValues1 );
     ABC_FREE( pValues2 );
-    // add clauses to SAT solver for error patterns.
-    for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
-    {
-        Lits[i] = toLit(s->pArray[i]);
-        if (pModel[i] == 1)
-        {
-            Lits[i] = lit_neg(Lits[i]);
-        }
-    }
-    temp = sat_solver_addclause( s, Lits, Lits + i );
-    *pSat = s;
-
-    return temp;
 }
 
 /**Function*************************************************************
