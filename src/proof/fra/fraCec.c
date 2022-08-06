@@ -317,7 +317,6 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     if ( pSat2 == NULL)
     {
         pSat2 = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
-        *pSat = pSat2;
     }
     if ( pSat2 == NULL )
     {
@@ -405,7 +404,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     if ( status == l_True )
     {
         pMan->pData = Sat_SolverGetModel( pSat2, vCiIds->pArray, vCiIds->nSize );
-        pSat2->pArray = vCiIds->pArray;
+        Sat_AddClause( pSat2, vCiIds->pArray, vCiIds->nSize );
     }
     // free the sat_solver
     if ( fVerbose )
@@ -413,8 +412,8 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
 //sat_solver_store_write( pSat, "trace.cnf" );
 //sat_solver_store_free( pSat );
 
-    //Vec_IntFree( vCiIds );
-    
+    Vec_IntFree( vCiIds );
+    *pSat = pSat2;
     return RetValue;
 }
 
