@@ -42,6 +42,7 @@ static void  Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int
 extern void  Abc_NtkVerifyReportErrorSeq( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, int nFrames );
 // Yu-Cheng added
 static void  Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
+static void  Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
 extern ABC_DLL int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars );
 
 ////////////////////////////////////////////////////////////////////////
@@ -268,7 +269,6 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
     Abc_Ntk_t * pExdc = NULL;
     int RetValue;
     sat_solver * pSat = NULL;
-    Abc_Obj_t * pNode;
     int times = 1, i;
     FILE *f, *fin, *temp;
     char filename[100];
@@ -313,17 +313,6 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
     }
     // handle trivial case
     RetValue = Abc_NtkMiterIsConstant( pMiter );
-    if ( RetValue == 0 )
-    {
-        printf( "Networks are NOT EQUIVALENT after structural hashing.  " );
-        // report the error
-        pMiter->pModel = Abc_NtkVerifyGetCleanModel( pMiter, 1 );
-        Abc_NtkVerifyReportError( pNtk1, pNtk2, pMiter->pModel );
-        ABC_FREE( pMiter->pModel );
-        Abc_NtkDelete( pMiter );
-        Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
-        return;
-    }
     if ( RetValue == 1 )
     {
         printf( "Networks are equivalent after structural hashing.  " );
@@ -358,8 +347,7 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
     // Generate files for inputID.
     for ( i = 0; i < Abc_NtkCiNum(pNtk1); i++ )
     {
-        pNode = Abc_NtkCi(pNtk1, i);
-        fprintf( fin, "%s ", Abc_ObjName(pNode) );
+        fprintf(fin, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,i)));
     }
     fclose(fin);
     // Generate all error patterns. (currently no more than 10000 iterations)
@@ -395,6 +383,202 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
         Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
         if ( pMiter->pModel )
             Abc_NtkVerifyErrorRec( pNtk1, pNtk2, pMiter->pModel );
+        not_done = pSat->temp;
+        times += 1;
+    }
+    sat_solver_delete( pSat );
+    Abc_NtkDelete( pMiter );
+}
+
+// Revised version of Abc_NtkCecFraig
+void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose )
+{
+    abctime clk = Abc_Clock();
+    Prove_Params_t Params, * pParams = &Params;
+    Abc_Ntk_t * pMiter, * pTemp;
+    Abc_Ntk_t * pExdc = NULL;
+    int RetValue;
+    sat_solver * pSat = NULL;
+    int times = 1, i, j;
+    FILE *f, *temp, *model;
+    char filename[100];
+    int not_done = 1;
+
+    if ( pNtk1->pExdc != NULL || pNtk2->pExdc != NULL )
+    {
+        if ( pNtk1->pExdc != NULL && pNtk2->pExdc != NULL )
+        {
+            printf( "Comparing EXDC of the two networks:\n" );
+            Abc_NtkCecAll( pNtk1->pExdc, pNtk2->pExdc, nSeconds, fVerbose );
+            printf( "Comparing networks under EXDC of the first network.\n" );
+            pExdc = pNtk1->pExdc;
+        }
+        else if ( pNtk1->pExdc != NULL )
+        {
+            printf( "Second network has no EXDC. Comparing main networks under EXDC of the first network.\n" );
+            pExdc = pNtk1->pExdc;
+        }
+        else if ( pNtk2->pExdc != NULL ) 
+        {
+            printf( "First network has no EXDC. Comparing main networks under EXDC of the second network.\n" );
+            pExdc = pNtk2->pExdc;
+        }
+        else assert( 0 );
+    }
+
+    // get the miter of the two networks
+    pMiter = Abc_NtkMiter( pNtk1, pNtk2, 1, 0, 0, 0 );
+    if ( pMiter == NULL )
+    {
+        printf( "Miter computation has failed.\n" );
+        return;
+    }
+    // add EXDC to the miter
+    if ( pExdc )
+    {
+        assert( Abc_NtkPoNum(pMiter) == 1 );
+        assert( Abc_NtkPoNum(pExdc) == 1 );
+        pMiter = Abc_NtkMiter( pTemp = pMiter, pExdc, 1, 0, 1, 0 );
+        Abc_NtkDelete( pTemp );
+    }
+    // handle trivial case
+    RetValue = Abc_NtkMiterIsConstant( pMiter );
+    if ( RetValue == 1 )
+    {
+        printf( "Networks are equivalent after structural hashing.  " );
+        Abc_NtkDelete( pMiter );
+        Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+        return;
+    }
+
+    // solve the CNF using the SAT solver
+    Prove_ParamsSetDefault( pParams );
+    pParams->nItersMax = 5;
+
+    // make a directory for cec output files
+    mkdir("cec_blif", S_IRWXU);
+    // Generate files for error patterns.
+    f = fopen("cec_blif/patch.blif", "w");
+    model = fopen("cec_blif/model.txt", "w");
+    fprintf(f, ".model patch\n");
+    fprintf(f, ".inputs");
+    for ( i = 0; i < Abc_NtkCiNum(pNtk1); i++ )
+    {
+        fprintf(f, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,i)));
+    }
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+    {
+        fprintf(f, " %s", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+    }
+    fprintf(f, "\n.outputs");
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+    {
+        fprintf(f, " patch_%s", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+    }
+    fprintf(f, "\n");
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+    {
+        sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(model, "%s\n", filename);
+        temp = fopen(filename, "w");
+        fprintf(temp, ".model %s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(temp, ".inputs");
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(temp, "\n.outputs %s_1>0\n.names", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(temp, " %s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));  
+        fclose(temp);
+        fprintf(f, ".subckt %s_1>0 ", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(f, " %s=%s", Abc_ObjName(Abc_NtkCi(pNtk1,j)), Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(f, " %s_1>0=%s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+
+        sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(model, "%s\n", filename);
+        temp = fopen(filename, "w");
+        fprintf(temp, ".model %s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(temp, ".inputs");
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(temp, "\n.outputs %s_0>1\n.names", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(temp, " %s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fclose(temp);
+        fprintf(f, ".subckt %s_0>1 ", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
+        {
+            fprintf(f, " %s=%s", Abc_ObjName(Abc_NtkCi(pNtk1,j)), Abc_ObjName(Abc_NtkCi(pNtk1,j)));
+        }
+        fprintf(f, " %s_0>1=%s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+    }
+    fprintf(model, "cec_blif/patch.blif");
+    fclose(model);
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+    {
+        fprintf(f, ".subckt mux out0>1=%s_0>1 out1>0=%s_1>0 out=%s patch_out=patch_%s\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+    }
+    fprintf(f, ".end\n\n.model mux\n.inputs out0>1 out1>0 out\n.outputs patch_out\n");
+    fprintf(f, ".names out0>1 out1>0 out patch_out\n");
+    fprintf(f, "001 1\n100 1\n101 1\n.end");
+    fclose(f);
+    // Generate all error patterns. (currently no more than 10000 iterations)
+    while ( times < 100000000 )
+    {
+        printf("Iteration %d:\n", times);
+        RetValue = Abc_NtkIvyProveAll( &pMiter, &pSat, pParams );
+        if ( RetValue == -1 )
+        {
+            printf( "Networks are undecided (resource limits is reached).  " );
+            Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+            break;
+        }
+        else if ( RetValue == 0 && not_done == 1 )
+        {
+            int * pSimInfo = Abc_NtkVerifySimulatePattern( pMiter, pMiter->pModel );
+            if ( pSimInfo[0] != 1 )
+            {
+                printf( "ERROR in Abc_NtkMiterProve(): Generated counter-example is invalid.\n" );
+                Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+                break;
+            }
+            else
+                printf( "Networks are NOT EQUIVALENT.  " );
+            ABC_FREE( pSimInfo );
+        }
+        else
+        {
+            printf( "Networks are equivalent.  " );
+            Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+            for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+            {
+                sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+                temp = fopen(filename, "a");
+                fprintf(temp, ".end");  
+                fclose(temp);
+
+                sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+                temp = fopen(filename, "a");
+                fprintf(temp, ".end");  
+                fclose(temp);
+            }
+            break;
+        }
+        Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
+        if ( pMiter->pModel )
+            Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel );
         not_done = pSat->temp;
         times += 1;
     }
@@ -1044,6 +1228,83 @@ void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
             fprintf(f, "%d", pModel[i]);
         }
         fprintf(f, "\n");
+        fclose(f);
+    }
+    Vec_PtrFree( vNodes );
+    ABC_FREE( pValues1 );
+    ABC_FREE( pValues2 );
+}
+
+// Revised version of Abc_NtkVerifyReportError
+void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
+{
+    Vec_Ptr_t * vNodes;
+    Abc_Obj_t * pNode;
+    int * pValues1, * pValues2;
+    int nErrors, i, j=0;
+    int Node[Abc_NtkCoNum(pNtk1)];
+    FILE *f;
+    char filename[100];
+
+    assert( Abc_NtkCiNum(pNtk1) == Abc_NtkCiNum(pNtk2) );
+    assert( Abc_NtkCoNum(pNtk1) == Abc_NtkCoNum(pNtk2) );
+    // get the CO values under this model
+    pValues1 = Abc_NtkVerifySimulatePattern( pNtk1, pModel );
+    pValues2 = Abc_NtkVerifySimulatePattern( pNtk2, pModel );
+    // count the mismatches
+    nErrors = 0;
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+        nErrors += (int)( pValues1[i] != pValues2[i] );
+    printf( "Verification failed for at least %d outputs: ", nErrors );
+    // print the outputs
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+    {
+        Node[i] = -1;
+        if ( pValues1[i] != pValues2[i] )
+        {
+            Node[j] = i;
+            j += 1;
+            printf( " %s", Abc_ObjName(Abc_NtkCo(pNtk1,i)) );
+        }
+    }
+    printf( "\n" );
+    // report mismatch for the outputs
+    for ( j=0; j<nErrors; j++ )
+    {
+        printf( "Output %s: Value in Network1 = %d. Value in Network2 = %d.\n", 
+            Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])), pValues1[Node[j]], pValues2[Node[j]] );
+
+        if ( pValues1[Node[j]] ) sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
+        else sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
+        f = fopen(filename, "a");
+
+        printf( "Input pattern: " );
+        // collect PIs in the cone
+        pNode = Abc_NtkCo(pNtk1,Node[j]);
+        vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
+        // set the PI numbers
+        Abc_NtkForEachCi( pNtk1, pNode, i )
+            pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
+        // print the model
+        if ( Vec_PtrSize(vNodes) )
+        {
+            pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
+            if ( Abc_ObjIsCi(pNode) )
+            {
+                Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
+                {
+                    assert( Abc_ObjIsCi(pNode) );
+                    printf( " %s=%d", Abc_ObjName(pNode), pModel[(int)(ABC_PTRINT_T)pNode->pCopy] );
+                }
+            }
+        }
+        printf( "\n" );
+        // write patterns to files
+        for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
+        {
+            fprintf(f, "%d", pModel[i]);
+        }
+        fprintf(f, " 1\n");
         fclose(f);
     }
     Vec_PtrFree( vNodes );

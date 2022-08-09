@@ -24174,6 +24174,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fPartition;
     int fIgnoreNames;
     int fAll;
+    int fBlif;
 
     extern void Abc_NtkCecSat( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nConfLimit, int nInsLimit );
     extern void Abc_NtkCecFraig( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
@@ -24181,6 +24182,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     extern void Abc_NtkCecFraigPartAuto( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
     // Yu-Cheng added ============================================================================ //
     extern void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
+    extern void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -24193,8 +24195,9 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     fPartition = 0;
     fIgnoreNames = 0;
     fAll = 0;
+    fBlif = 0;
     Extra_UtilGetoptReset();
-    while ( ( c = Extra_UtilGetopt( argc, argv, "TCIPpsnvah" ) ) != EOF )
+    while ( ( c = Extra_UtilGetopt( argc, argv, "TCIPpsnvabh" ) ) != EOF )
     {
         switch ( c )
         {
@@ -24257,6 +24260,9 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
         case 'a':
             fAll ^= 1;
             break;
+        case 'b':
+            fBlif ^= 1;
+            break;
         default:
             goto usage;
         }
@@ -24300,6 +24306,9 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     // for 'cec -a'
     else if ( fAll )
         Abc_NtkCecAll( pNtk1, pNtk2, nSeconds, fVerbose );
+    // for 'cec -b'
+    else if ( fBlif )
+        Abc_NtkCecBlif( pNtk1, pNtk2, nSeconds, fVerbose );
     // =========================================================================================== //
     else
         Abc_NtkCecFraig( pNtk1, pNtk2, nSeconds, fVerbose );
@@ -24324,6 +24333,7 @@ usage:
     Abc_Print( -2, "\t-n     : toggle how CIs/COs are matched (by name or by order) [default = %s]\n", fIgnoreNames? "by order": "by name" );
     Abc_Print( -2, "\t-v     : toggle verbose output [default = %s]\n", fVerbose? "yes": "no" );
     Abc_Print( -2, "\t-a     : generate all error patterns\n");
+    Abc_Print( -2, "\t-a     : write all error patterns into blif files\n");
     Abc_Print( -2, "\t-h     : print the command usage\n");
     Abc_Print( -2, "\tfile1  : (optional) the file with the first network\n");
     Abc_Print( -2, "\tfile2  : (optional) the file with the second network\n");
