@@ -15,3 +15,5 @@
 1. Do CEC and generate all error patterns if two circuits are nonequivalent.
 
 2. Generate a patch(patch.blif) for netlist1 and several subcircuits in 'cec_blif' folder. (Similar to Cadence LEC)
+
+3. Users can do technology mapping by Yosys command 'tcl patch.tcl'.
