@@ -11,4 +11,5 @@ foreach line $data {
 synth -flatten
 techmap; opt
 #abc -g AND,NAND,OR,NOR,XOR,XNOR
-abc -g all
+#abc -g all
+abc -liberty lib/typical.lib
