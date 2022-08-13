@@ -295,6 +295,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     abctime clk = Abc_Clock();
     Vec_Int_t * vCiIds;
     sat_solver * pSat2 = * pSat;
+    int i;
 
     assert( Aig_ManRegNum(pMan) == 0 );
     pMan->pData = NULL;
@@ -404,7 +405,11 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     if ( status == l_True )
     {
         pMan->pData = Sat_SolverGetModel( pSat2, vCiIds->pArray, vCiIds->nSize );
-        Sat_AddClause( pSat2, vCiIds->pArray, vCiIds->nSize );
+        pSat2->pArray = malloc(sizeof(int*)*vCiIds->nSize);
+        for ( i=0; i<vCiIds->nSize; i++ )
+        {
+            pSat2->pArray[i] = vCiIds->pArray[i];
+        }
     }
     // free the sat_solver
     if ( fVerbose )
