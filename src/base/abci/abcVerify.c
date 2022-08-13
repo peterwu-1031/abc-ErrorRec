@@ -41,8 +41,8 @@ ABC_NAMESPACE_IMPL_START
 static void  Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
 extern void  Abc_NtkVerifyReportErrorSeq( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, int nFrames );
 // Yu-Cheng added
-static void  Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
-static void  Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel );
+static void  Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat );
+static void  Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat );
 extern ABC_DLL int Abc_NtkIvyProveAll( Abc_Ntk_t ** ppNtk, sat_solver ** pSat, void * pPars );
 
 ////////////////////////////////////////////////////////////////////////
@@ -382,7 +382,7 @@ void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVer
         }
         Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
         if ( pMiter->pModel )
-            Abc_NtkVerifyErrorRec( pNtk1, pNtk2, pMiter->pModel );
+            Abc_NtkVerifyErrorRec( pNtk1, pNtk2, pMiter->pModel, &pSat );
         not_done = pSat->temp;
         times += 1;
     }
@@ -532,7 +532,7 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
     }
     fprintf(f, ".end\n\n.model mux\n.inputs out0>1 out1>0 out\n.outputs patch_out\n");
     fprintf(f, ".names out0>1 out1>0 out patch_out\n");
-    fprintf(f, "001 1\n100 1\n101 1\n.end");
+    fprintf(f, "-01 1\n10- 1\n.end");
     fclose(f);
     // Generate all error patterns. (currently no more than 10000 iterations)
     while ( times < 100000000 )
@@ -578,7 +578,7 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
         }
         Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
         if ( pMiter->pModel )
-            Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel );
+            Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel, &pSat );
         not_done = pSat->temp;
         times += 1;
     }
@@ -1159,7 +1159,7 @@ void Abc_NtkVerifyReportError( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMode
 ***********************************************************************/
 // Yu-Cheng added
 // Revised version of Abc_NtkVerifyReportError
-void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
+void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat )
 {
     Vec_Ptr_t * vNodes;
     Abc_Obj_t * pNode;
@@ -1168,6 +1168,8 @@ void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
     int Node[Abc_NtkCoNum(pNtk1)];
     FILE *f;
     char filename[100];
+    sat_solver *s = *pSat;
+    lit Lits[Abc_NtkCiNum(pNtk1)];
 
     assert( Abc_NtkCiNum(pNtk1) == Abc_NtkCiNum(pNtk2) );
     assert( Abc_NtkCoNum(pNtk1) == Abc_NtkCoNum(pNtk2) );
@@ -1225,8 +1227,15 @@ void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
         // write patterns to files
         for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
         {
+            Lits[i] = toLit(s->pArray[i]);
+            if ( pModel[i] == 1 )
+            {
+                Lits[i] = lit_neg(Lits[i]);
+            }
             fprintf(f, "%d", pModel[i]);
         }
+        s->temp = sat_solver_addclause(s, Lits, Lits + i);
+        *pSat = s;
         fprintf(f, "\n");
         fclose(f);
     }
@@ -1236,7 +1245,7 @@ void Abc_NtkVerifyErrorRec( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
 }
 
 // Revised version of Abc_NtkVerifyReportError
-void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel )
+void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pModel, sat_solver ** pSat )
 {
     Vec_Ptr_t * vNodes;
     Abc_Obj_t * pNode;
@@ -1245,6 +1254,10 @@ void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMod
     int Node[Abc_NtkCoNum(pNtk1)];
     FILE *f;
     char filename[100];
+    sat_solver *s = *pSat;
+    lit Lits[Abc_NtkCiNum(pNtk1)];
+    int PI[Abc_NtkCiNum(pNtk1)];
+    int num_var = 0;
 
     assert( Abc_NtkCiNum(pNtk1) == Abc_NtkCiNum(pNtk2) );
     assert( Abc_NtkCoNum(pNtk1) == Abc_NtkCoNum(pNtk2) );
@@ -1274,17 +1287,13 @@ void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMod
         printf( "Output %s: Value in Network1 = %d. Value in Network2 = %d.\n", 
             Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])), pValues1[Node[j]], pValues2[Node[j]] );
 
-        if ( pValues1[Node[j]] ) sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
-        else sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
-        f = fopen(filename, "a");
-
         printf( "Input pattern: " );
         // collect PIs in the cone
         pNode = Abc_NtkCo(pNtk1,Node[j]);
         vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
         // set the PI numbers
         Abc_NtkForEachCi( pNtk1, pNode, i )
-            pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
+        pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
         // print the model
         if ( Vec_PtrSize(vNodes) )
         {
@@ -1295,17 +1304,37 @@ void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMod
                 {
                     assert( Abc_ObjIsCi(pNode) );
                     printf( " %s=%d", Abc_ObjName(pNode), pModel[(int)(ABC_PTRINT_T)pNode->pCopy] );
+                    PI[(int)(ABC_PTRINT_T)pNode->pCopy] = 1;
                 }
             }
         }
         printf( "\n" );
-        // write patterns to files
+    }
+    // Add a clause to SAT solver
+    for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
+    {
+        if ( PI[i] == 1 ) 
+        {
+            Lits[num_var] = toLit(s->pArray[i]);
+            if ( pModel[i] == 1 ) Lits[num_var] = lit_neg(Lits[num_var]);
+            num_var++;
+        }
+    }
+    s->temp = sat_solver_addclause(s, Lits, Lits + num_var);
+    *pSat = s;
+    // write patterns to blif files
+    for ( j=0; j<nErrors; j++ )
+    {
+        if ( pValues1[Node[j]] ) sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
+        else sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
+        f = fopen(filename, "a");
         for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
         {
-            fprintf(f, "%d", pModel[i]);
+            if ( PI[i] == 1 ) fprintf(f, "%d", pModel[i]);
+            else fprintf(f, "-");
         }
         fprintf(f, " 1\n");
-        fclose(f);
+        fclose(f); 
     }
     Vec_PtrFree( vNodes );
     ABC_FREE( pValues1 );
