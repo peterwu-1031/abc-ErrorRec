@@ -256,35 +256,6 @@ int Sat_Solver2GetVarMem( sat_solver2 * s )
     return Mem;
 }
 
-// Yu-Cheng added
-/**Function*************************************************************
-
-  Synopsis    [Add a clause to SAT solver.]
-
-  Description []
-               
-  SideEffects []
-
-  SeeAlso     []
-
-***********************************************************************/
-void Sat_AddClause( sat_solver * p, int * pVars, int nVars )
-{
-    int i, model;
-    lit * Lits;
-    Lits = ABC_CALLOC( lit, nVars+1 );
-    for ( i=0; i<nVars; i++ )
-    {
-        Lits[i] = toLit(pVars[i]);
-        model = sat_solver_var_value(p, pVars[i]);
-        if (model == 1)
-        {
-            Lits[i] = lit_neg(Lits[i]);
-        }
-    }
-    p->temp = sat_solver_addclause( p, Lits, Lits + i );
-}
-
 /**Function*************************************************************
 
   Synopsis    [Returns a counter-example.]

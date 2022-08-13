@@ -87,9 +87,6 @@ extern void        sat_solver_store_free( sat_solver * s );
 extern void        sat_solver_store_mark_roots( sat_solver * s );
 extern void        sat_solver_store_mark_clauses_a( sat_solver * s );
 extern void *      sat_solver_store_release( sat_solver * s );
-
-// Yu-Cheng added
-extern void        Sat_AddClause( sat_solver * p, int * pVars, int nVars );
 //=================================================================================================
 // Solver representation:
 
@@ -107,6 +104,7 @@ struct sat_solver_t
     int         qtail;         // Tail index of queue.
     // Yu-Cheng added
     int         temp;          // Is there any error pattern not found?
+    int *       pArray;
 
     // clauses
     Sat_Mem_t   Mem;
