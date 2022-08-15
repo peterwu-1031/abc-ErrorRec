@@ -28,8 +28,11 @@
 #include "aig/gia/gia.h"
 #include "proof/ssw/ssw.h"
 #include <sys/stat.h>
+#include <stdio.h>
+#include <stdlib.h>
 // Yu-Cheng added (for sat_solver)
 #include "sat/bsat/satSolver.h"
+#include "Hash.h"
 
 ABC_NAMESPACE_IMPL_START
 
@@ -397,12 +400,14 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
     Prove_Params_t Params, * pParams = &Params;
     Abc_Ntk_t * pMiter, * pTemp;
     Abc_Ntk_t * pExdc = NULL;
-    int RetValue;
+    int RetValue, RandErr = 0, times = 1, not_done = 1, errors = 0, i, j;
     sat_solver * pSat = NULL;
-    int times = 1, i, j;
+    int * pValues1 = NULL, * pValues2 = NULL;
     FILE *f, *temp, *model;
+    char pattern[Abc_NtkCiNum(pNtk1)];
     char filename[100];
-    int not_done = 1;
+    time_t t;
+    int max_iter = 1000000, max_rand_err = 3;
 
     if ( pNtk1->pExdc != NULL || pNtk2->pExdc != NULL )
     {
@@ -535,8 +540,53 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
     fprintf(f, "-01 1\n10- 1\n.end");
     fclose(f);
     // Generate all error patterns. (currently no more than 10000 iterations)
-    while ( times < 100000000 )
+    srand((unsigned) time(&t));
+    hash_table_init();
+    while ( times < max_iter )
     {
+        // random simulation
+        if ( times > 1 && errors < max_rand_err )
+        {
+            for ( i = 0; i < Abc_NtkCiNum(pNtk1); i++ )
+            {
+                pMiter->pModel[i] = rand()%2;
+                if ( pMiter->pModel[i] == 1 ) pattern[i] = '1';
+                else pattern[i] = '0';
+            }
+            HashNode* pNode = hash_table_lookup(pattern);  
+            if ( pNode == NULL )
+            {
+                pValues1 = Abc_NtkVerifySimulatePattern( pNtk1, pMiter->pModel );
+                pValues2 = Abc_NtkVerifySimulatePattern( pNtk2, pMiter->pModel );
+                for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+                {
+                    if ( pValues1[i] != pValues2[i] ) RandErr = 1;
+                    break;
+                }                
+                if ( RandErr == 1 )
+                {
+                    printf("Iteration %d:\n", times);
+                    Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel, &pSat );
+                    times++;
+                    errors = 0;
+                    RandErr = 0;
+                    hash_table_insert(pattern, 1);
+                    continue;
+                }
+                else
+                {
+                    errors++;
+                    hash_table_insert(pattern, 0);
+                    continue;
+                }
+            }
+            else
+            {
+                errors++;
+                continue;
+            } 
+        }
+
         printf("Iteration %d:\n", times);
         RetValue = Abc_NtkIvyProveAll( &pMiter, &pSat, pParams );
         if ( RetValue == -1 )
@@ -582,6 +632,12 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
         not_done = pSat->temp;
         times += 1;
     }
+    if ( pValues1 != NULL )
+    {
+        ABC_FREE( pValues1 );
+        ABC_FREE( pValues2 );
+    }
+    hash_table_release();
     sat_solver_delete( pSat );
     Abc_NtkDelete( pMiter );
 }
@@ -1310,7 +1366,7 @@ void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMod
         }
         printf( "\n" );
     }
-    // Add a clause to SAT solver
+    // add a clause to SAT solver
     for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
     {
         if ( PI[i] == 1 ) 
