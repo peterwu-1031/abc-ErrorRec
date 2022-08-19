@@ -483,65 +483,42 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
     fprintf(f, "\n");
     for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
     {
-        sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        sprintf(filename, "cec_blif/%s_rec.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
         fprintf(model, "%s\n", filename);
         temp = fopen(filename, "w");
-        fprintf(temp, ".model %s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(temp, ".model %s_rec\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
         fprintf(temp, ".inputs");
         for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
         {
             fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
         }
-        fprintf(temp, "\n.outputs %s_1>0\n.names", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(temp, "\n.outputs %s_rec\n.names", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
         for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
         {
             fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
         }
-        fprintf(temp, " %s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));  
+        fprintf(temp, " %s_rec\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));  
         fclose(temp);
-        fprintf(f, ".subckt %s_1>0 ", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(f, ".subckt %s_rec ", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
         for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
         {
             fprintf(f, " %s=%s", Abc_ObjName(Abc_NtkCi(pNtk1,j)), Abc_ObjName(Abc_NtkCi(pNtk1,j)));
         }
-        fprintf(f, " %s_1>0=%s_1>0\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-
-        sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-        fprintf(model, "%s\n", filename);
-        temp = fopen(filename, "w");
-        fprintf(temp, ".model %s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-        fprintf(temp, ".inputs");
-        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
-        {
-            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
-        }
-        fprintf(temp, "\n.outputs %s_0>1\n.names", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
-        {
-            fprintf(temp, " %s", Abc_ObjName(Abc_NtkCi(pNtk1,j)));
-        }
-        fprintf(temp, " %s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-        fclose(temp);
-        fprintf(f, ".subckt %s_0>1 ", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-        for ( j = 0; j < Abc_NtkCiNum(pNtk1); j++ )
-        {
-            fprintf(f, " %s=%s", Abc_ObjName(Abc_NtkCi(pNtk1,j)), Abc_ObjName(Abc_NtkCi(pNtk1,j)));
-        }
-        fprintf(f, " %s_0>1=%s_0>1\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(f, " %s_rec=%s_rec\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
     }
     fprintf(model, "cec_blif/patch.blif");
     fclose(model);
     for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
     {
-        fprintf(f, ".subckt mux out0>1=%s_0>1 out1>0=%s_1>0 out=%s patch_out=patch_%s\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+        fprintf(f, ".subckt mux out_rec=%s_rec out=%s patch_out=patch_%s\n", Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)), Abc_ObjName(Abc_NtkCo(pNtk1,i)) );
     }
-    fprintf(f, ".end\n\n.model mux\n.inputs out0>1 out1>0 out\n.outputs patch_out\n");
-    fprintf(f, ".names out0>1 out1>0 out patch_out\n");
-    fprintf(f, "-01 1\n10- 1\n.end");
+    fprintf(f, ".end\n\n.model mux\n.inputs out_rec out\n.outputs patch_out\n");
+    fprintf(f, ".names out_rec out patch_out\n");
+    fprintf(f, "01 1\n10 1\n.end");
     fclose(f);
     // Generate all error patterns. (currently no more than 10000 iterations)
     srand((unsigned) time(&t));
-    hash_table_init();
+    // hash_table_init();
     while ( times < max_iter )
     {
         // random simulation
@@ -553,38 +530,39 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
                 if ( pMiter->pModel[i] == 1 ) pattern[i] = '1';
                 else pattern[i] = '0';
             }
-            HashNode* pNode = hash_table_lookup(pattern);  
-            if ( pNode == NULL )
-            {
-                pValues1 = Abc_NtkVerifySimulatePattern( pNtk1, pMiter->pModel );
-                pValues2 = Abc_NtkVerifySimulatePattern( pNtk2, pMiter->pModel );
-                for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
-                {
-                    if ( pValues1[i] != pValues2[i] ) RandErr = 1;
-                    break;
-                }                
-                if ( RandErr == 1 )
-                {
-                    printf("Iteration %d:\n", times);
-                    Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel, &pSat );
-                    times++;
-                    errors = 0;
-                    RandErr = 0;
-                    hash_table_insert(pattern, 1);
-                    continue;
-                }
-                else
-                {
-                    errors++;
-                    hash_table_insert(pattern, 0);
-                    continue;
-                }
-            }
-            else
-            {
-                errors++;
-                continue;
-            } 
+            // HashNode* pNode = hash_table_lookup(pattern);  
+            // if ( pNode == NULL )
+            // if (1)
+            // {
+            //     pValues1 = Abc_NtkVerifySimulatePattern( pNtk1, pMiter->pModel );
+            //     pValues2 = Abc_NtkVerifySimulatePattern( pNtk2, pMiter->pModel );
+            //     for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+            //     {
+            //         if ( pValues1[i] != pValues2[i] ) RandErr = 1;
+            //         break;
+            //     }                
+            //     if ( RandErr == 1 )
+            //     {
+            //         printf("Iteration %d:\n", times);
+            //         Abc_NtkVerifyErrorRecBlif( pNtk1, pNtk2, pMiter->pModel, &pSat );
+            //         times++;
+            //         errors = 0;
+            //         RandErr = 0;
+            //         hash_table_insert(pattern, 1);
+            //         continue;
+            //     }
+            //     else
+            //     {
+            //         errors++;
+            //         hash_table_insert(pattern, 0);
+            //         continue;
+            //     }
+            // }
+            // else
+            // {
+            //     errors++;
+            //     continue;
+            // } 
         }
 
         printf("Iteration %d:\n", times);
@@ -614,12 +592,7 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
             Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
             for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
             {
-                sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
-                temp = fopen(filename, "a");
-                fprintf(temp, ".end");  
-                fclose(temp);
-
-                sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
+                sprintf(filename, "cec_blif/%s_rec.blif", Abc_ObjName(Abc_NtkCo(pNtk1,i)));
                 temp = fopen(filename, "a");
                 fprintf(temp, ".end");  
                 fclose(temp);
@@ -637,7 +610,7 @@ void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVe
         ABC_FREE( pValues1 );
         ABC_FREE( pValues2 );
     }
-    hash_table_release();
+    // hash_table_release();
     sat_solver_delete( pSat );
     Abc_NtkDelete( pMiter );
 }
@@ -1381,8 +1354,7 @@ void Abc_NtkVerifyErrorRecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int * pMod
     // write patterns to blif files
     for ( j=0; j<nErrors; j++ )
     {
-        if ( pValues1[Node[j]] ) sprintf(filename, "cec_blif/%s_1>0.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
-        else sprintf(filename, "cec_blif/%s_0>1.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
+        sprintf(filename, "cec_blif/%s_rec.blif", Abc_ObjName(Abc_NtkCo(pNtk1,Node[j])));
         f = fopen(filename, "a");
         for ( i=0; i<Abc_NtkCiNum(pNtk1); i++ )
         {
