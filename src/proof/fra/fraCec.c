@@ -290,10 +290,10 @@ int Fra_FraigSat( Aig_Man_t * pMan, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimi
 // Revised version of Fra_FraigSat
 int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimit, ABC_INT64_T nInsLimit, int nLearnedStart, int nLearnedDelta, int nLearnedPerce, int fFlipBits, int fAndOuts, int fNewSolver, int fVerbose )
 {
-    Cnf_Dat_t * pCnf;
+    Cnf_Dat_t * pCnf = NULL;
     int status, RetValue = 0;
     abctime clk = Abc_Clock();
-    Vec_Int_t * vCiIds;
+    Vec_Int_t * vCiIds = NULL;
     sat_solver * pSat2 = * pSat;
     int i;
 
@@ -301,27 +301,27 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     pMan->pData = NULL;
 
     // derive CNF
-    pCnf = Cnf_Derive( pMan, Aig_ManCoNum(pMan) );
+    if ( pSat2 == NULL ) pCnf = Cnf_Derive( pMan, Aig_ManCoNum(pMan) );
 
 //    pCnf = Cnf_DeriveSimple( pMan, Aig_ManCoNum(pMan) );
 
     if ( fFlipBits ) 
-        Cnf_DataTranformPolarity( pCnf, 0 );
+        if ( pCnf != NULL ) Cnf_DataTranformPolarity( pCnf, 0 );
 
     if ( fVerbose )
     {
-        printf( "CNF stats: Vars = %6d. Clauses = %7d. Literals = %8d. ", pCnf->nVars, pCnf->nClauses, pCnf->nLiterals );
+        if ( pCnf != NULL ) printf( "CNF stats: Vars = %6d. Clauses = %7d. Literals = %8d. ", pCnf->nVars, pCnf->nClauses, pCnf->nLiterals );
         Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
     }
 
     // convert into SAT solver
-    if ( pSat2 == NULL)
+    if ( pSat2 == NULL )
     {
         pSat2 = (sat_solver *)Cnf_DataWriteIntoSolver( pCnf, 1, 0 );
     }
     if ( pSat2 == NULL )
     {
-        Cnf_DataFree( pCnf );
+        if ( pCnf != NULL ) Cnf_DataFree( pCnf );
         return 1;
     }
 
@@ -334,7 +334,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     if ( fVerbose )
         pSat2->fVerbose = fVerbose;
 
-    if ( fAndOuts )
+    if ( fAndOuts && pCnf != NULL )
     {
         // assert each output independently
         if ( !Cnf_DataWriteAndClauses( pSat2, pCnf ) )
@@ -344,7 +344,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
             return 1;
         }
     }
-    else
+    else if ( pCnf != NULL ) 
     {
         // add the OR clause for the outputs
         if ( !Cnf_DataWriteOrClause( pSat2, pCnf ) )
@@ -354,8 +354,11 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
             return 1;
         }
     }
-    vCiIds = Cnf_DataCollectPiSatNums( pCnf, pMan );
-    Cnf_DataFree( pCnf );
+    if ( pCnf != NULL ) 
+    {
+        vCiIds = Cnf_DataCollectPiSatNums( pCnf, pMan );
+        Cnf_DataFree( pCnf );
+    }
 
 
 //    printf( "Created SAT problem with %d variable and %d clauses. ", sat_solver_nvars(pSat), sat_solver_nclauses(pSat) );
@@ -368,7 +371,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
 //    ABC_PRT( "Time", Abc_Clock() - clk );
     if ( status == 0 )
     {
-        Vec_IntFree( vCiIds );
+        if ( pCnf != NULL ) Vec_IntFree( vCiIds );
         sat_solver_delete( pSat2 );
 //        printf( "The problem is UNSATISFIABLE after simplification.\n" );
         return 1;
@@ -404,12 +407,17 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
     // if the problem is SAT, get the counterexample
     if ( status == l_True )
     {
-        pMan->pData = Sat_SolverGetModel( pSat2, vCiIds->pArray, vCiIds->nSize );
-        pSat2->pArray = malloc(sizeof(int*)*vCiIds->nSize);
-        for ( i=0; i<vCiIds->nSize; i++ )
+        if ( pCnf != NULL ) 
         {
-            pSat2->pArray[i] = vCiIds->pArray[i];
+            pMan->pData = Sat_SolverGetModel( pSat2, vCiIds->pArray, vCiIds->nSize );
+            pSat2->pArray = malloc(sizeof(int*)*vCiIds->nSize);
+            for ( i=0; i<vCiIds->nSize; i++ ) pSat2->pArray[i] = vCiIds->pArray[i];
+            pSat2->PiSize = vCiIds->nSize;
         }
+        else
+        {
+            pMan->pData = Sat_SolverGetModel( pSat2, pSat2->pArray, pSat2->PiSize );
+        } 
     }
     // free the sat_solver
     if ( fVerbose )
@@ -417,7 +425,7 @@ int Fra_FraigSatAll( sat_solver ** pSat, Aig_Man_t * pMan, ABC_INT64_T nConfLimi
 //sat_solver_store_write( pSat, "trace.cnf" );
 //sat_solver_store_free( pSat );
 
-    Vec_IntFree( vCiIds );
+    if ( pCnf != NULL ) Vec_IntFree( vCiIds );
     *pSat = pSat2;
     return RetValue;
 }
