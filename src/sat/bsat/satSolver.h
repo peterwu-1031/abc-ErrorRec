@@ -104,7 +104,8 @@ struct sat_solver_t
     int         qtail;         // Tail index of queue.
     // Yu-Cheng added
     int         temp;          // Is there any error pattern not found?
-    int *       pArray;
+    int         PiSize;        // number of PIs
+    int *       pArray;        // PI's ID
 
     // clauses
     Sat_Mem_t   Mem;
