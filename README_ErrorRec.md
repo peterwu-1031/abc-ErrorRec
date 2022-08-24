@@ -14,4 +14,4 @@
 
 1. Generate a patch(patch.v) for netlist1 and several subcircuits in 'cec_patch' folder. (Similar to Cadence LEC)
 
-2. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'.
+2. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'. (Using cell library - lib/typical.lib)
