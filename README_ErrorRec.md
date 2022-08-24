@@ -10,10 +10,8 @@
 
 5. 0>1(1>0) means that netlist1 prints 0(1) and netlist2 prints 1(0).
 
-# cec -b netlist1.v netlist2.v
+# cec -p netlist1.v netlist2.v
 
-1. Do CEC and generate all error patterns if two circuits are nonequivalent.
+1. Generate a patch(patch.v) for netlist1 and several subcircuits in 'cec_patch' folder. (Similar to Cadence LEC)
 
-2. Generate a patch(patch.blif) for netlist1 and several subcircuits in 'cec_blif' folder. (Similar to Cadence LEC)
-
-3. Users can do technology mapping on patches by Yosys command 'tcl patch.tcl'.
+2. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'.
