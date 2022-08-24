@@ -24174,7 +24174,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     int fPartition;
     int fIgnoreNames;
     int fAll;
-    int fBlif;
+    int fPatch;
 
     extern void Abc_NtkCecSat( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nConfLimit, int nInsLimit );
     extern void Abc_NtkCecFraig( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
@@ -24182,7 +24182,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     extern void Abc_NtkCecFraigPartAuto( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
     // Yu-Cheng added ============================================================================ //
     extern void Abc_NtkCecAll( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
-    extern void Abc_NtkCecBlif( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
+    extern void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fVerbose );
 
     pNtk = Abc_FrameReadNtk(pAbc);
     // set defaults
@@ -24195,7 +24195,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     fPartition = 0;
     fIgnoreNames = 0;
     fAll = 0;
-    fBlif = 0;
+    fPatch = 0;
     Extra_UtilGetoptReset();
     while ( ( c = Extra_UtilGetopt( argc, argv, "TCIPpsnvabh" ) ) != EOF )
     {
@@ -24261,7 +24261,7 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
             fAll ^= 1;
             break;
         case 'b':
-            fBlif ^= 1;
+            fPatch ^= 1;
             break;
         default:
             goto usage;
@@ -24307,8 +24307,8 @@ int Abc_CommandCec( Abc_Frame_t * pAbc, int argc, char ** argv )
     else if ( fAll )
         Abc_NtkCecAll( pNtk1, pNtk2, nSeconds, fVerbose );
     // for 'cec -b'
-    else if ( fBlif )
-        Abc_NtkCecBlif( pNtk1, pNtk2, nSeconds, fVerbose );
+    else if ( fPatch )
+        Abc_NtkCecPatch( pNtk1, pNtk2, nSeconds, fVerbose );
     // =========================================================================================== //
     else
         Abc_NtkCecFraig( pNtk1, pNtk2, nSeconds, fVerbose );
