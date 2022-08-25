@@ -620,7 +620,7 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
                     fprintf(temp, "in%d};\n", num_pi-1);
                     fprintf(temp, "\nassign out_rec = (pattern == %d'b", num_pi);  
                 }
-                else fprintf(temp, " ||\n                 (pattern == %d'b", num_pi);
+                else fprintf(temp, " |\n                 (pattern == %d'b", num_pi);
                 
                 for ( i = 0; i < num_pi; i++ )
                 {
