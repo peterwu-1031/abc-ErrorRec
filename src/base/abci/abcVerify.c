@@ -613,21 +613,17 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
                     fprintf(f, "\nmux mux%d(.out_rec(out_rec_%d), .out(out%d), .patch_out(patch%d));", num_mux, k, k, k );
                     num_mux++;
                     fprintf(temp, "\n\toutput out_rec\n);\n");
-                    fprintf(temp, "\nwire   pattern;");
-                    fprintf(temp, "\nassign pattern = {");
-                    for ( i = 0; i < num_pi-1; i++ )
-                        fprintf(temp, "in%d, ", i);
-                    fprintf(temp, "in%d};\n", num_pi-1);
-                    fprintf(temp, "\nassign out_rec = (pattern == %d'b", num_pi);  
+                    fprintf(temp, "\nassign out_rec = (");  
                 }
-                else fprintf(temp, " |\n                 (pattern == %d'b", num_pi);
-                
+                else fprintf(temp, " |\n                 (");
                 for ( i = 0; i < num_pi; i++ )
                 {
                     Lits[i] = toLit(pSat->pArray[Pi[i]]);
                     if ( pMiter->pModel[Pi[i]] == 1 ) Lits[i] = lit_neg(Lits[i]);
                     printf("%s=%d ", PiName[i], pMiter->pModel[Pi[i]]);
-                    fprintf(temp, "%d", pMiter->pModel[Pi[i]]);
+                    if (i>0) fprintf(temp, " & ");
+                    if (pMiter->pModel[Pi[i]]) fprintf(temp, " in%d", i);
+                    else fprintf(temp, "~in%d", i);
                 }
                 fprintf(temp, ")");
                 printf("\n");
@@ -636,7 +632,7 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
             not_done = pSat->temp;
             times += 1;
         }
-        if ( first_iter == 1 ) fprintf(f, "\nbuff buff%d(.out(%d), .patch_out(patch_%d));", (k-num_mux), k, k );
+        if ( first_iter == 1 ) fprintf(f, "\nbuff buff%d(.out(out%d), .patch_out(patch%d));", (k-num_mux), k, k );
         else
         {
             fprintf(temp, ";\n\nendmodule");
@@ -652,8 +648,8 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
         ABC_FREE( pValues2 );
     }
     // hash_table_release();
-    sat_solver_delete( pSat );
-    Abc_NtkDelete( pMiter );
+    if ( pSat != NULL ) sat_solver_delete( pSat );
+    // Abc_NtkDelete( pMiter );
 
     fprintf(model, "cec_patch/patch.v");
     fclose(model);
