@@ -286,7 +286,29 @@ void Abc_NtkMiterFinalize( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, Abc_Ntk_t * pNt
     assert( nPartSize == 0 || fMulti == 0 );
     // collect the PO pairs from both networks
     vPairs = Vec_PtrAlloc( 100 );
-    if ( fComb )
+    // Yu-Cheng added
+    if ( fComb > 1 )
+    {
+        // collect the CO nodes for the miter
+        Abc_NtkForEachCo( pNtk1, pNode, i )
+        {
+            if ( i == fComb - 2 )
+            {
+                if ( fMulti )
+                {
+                    pMiter = Abc_AigXor( (Abc_Aig_t *)pNtkMiter->pManFunc, Abc_ObjChild0Copy(pNode), Abc_ObjChild0Copy(Abc_NtkCo(pNtk2, i)) );
+                    Abc_ObjAddFanin( Abc_NtkPo(pNtkMiter,i), pMiter );
+                }
+                else
+                {
+                    Vec_PtrPush( vPairs, Abc_ObjChild0Copy(pNode) );
+                    pNode = Abc_NtkCo( pNtk2, i );
+                    Vec_PtrPush( vPairs, Abc_ObjChild0Copy(pNode) );
+                }
+            }
+        }
+    }
+    else if ( fComb == 1 )
     {
         // collect the CO nodes for the miter
         Abc_NtkForEachCo( pNtk1, pNode, i )
