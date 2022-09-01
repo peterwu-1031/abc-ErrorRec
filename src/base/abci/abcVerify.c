@@ -423,13 +423,19 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
     model = fopen("cec_patch/model.txt", "w");
     fprintf(f, "module patch(");
     for ( i = 0; i < Abc_NtkCiNum(pNtk1); i++ )
-        fprintf(f, "\n\tinput  in%d,", i);
+        fprintf(f, " in%d,", i);
     for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
-        fprintf(f, "\n\tinput  out%d,", i);
+        fprintf(f, " out%d,", i);
     for ( i = 0; i < Abc_NtkCoNum(pNtk1)-1; i++ )
-        fprintf(f, "\n\toutput patch%d,", i);
-    fprintf(f, "\n\toutput patch%d", Abc_NtkCoNum(pNtk1)-1);
-    fprintf(f, "\n);\n");
+        fprintf(f, " patch%d,", i);
+    fprintf(f, " patch%d );", Abc_NtkCoNum(pNtk1)-1);
+    for ( i = 0; i < Abc_NtkCiNum(pNtk1); i++ )
+        fprintf(f, "\ninput  in%d;", i);
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
+        fprintf(f, "\ninput  out%d;", i);
+    for ( i = 0; i < Abc_NtkCoNum(pNtk1)-1; i++ )
+        fprintf(f, "\noutput patch%d;", i);
+    fprintf(f, "\noutput patch%d;", Abc_NtkCoNum(pNtk1)-1);
     for ( i = 0; i < Abc_NtkCoNum(pNtk1); i++ )
         fprintf(f, "\nwire out_rec_%d;", i);
     fprintf(f, "\n");
@@ -465,10 +471,10 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
         char * PoName = Abc_ObjName(Abc_NtkCo(pNtk1,k));
 
         // collect PIs in the cone
-        pNode = Abc_NtkCo(pNtk1, k);
-        vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
+        pNode = Abc_NtkCo(pNtk2, k);
+        vNodes = Abc_NtkNodeSupport( pNtk2, &pNode, 1 );
         // set the PI numbers
-        Abc_NtkForEachCi( pNtk1, pNode, i )
+        Abc_NtkForEachCi( pNtk2, pNode, i )
         pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
         if ( Vec_PtrSize(vNodes) )
         {
@@ -484,6 +490,26 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
                 }
             }
         }
+        // // collect PIs in the cone
+        // pNode = Abc_NtkCo(pNtk1, k);
+        // vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
+        // // set the PI numbers
+        // Abc_NtkForEachCi( pNtk1, pNode, i )
+        // pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
+        // if ( Vec_PtrSize(vNodes) )
+        // {
+        //     pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
+        //     if ( Abc_ObjIsCi(pNode) )
+        //     {
+        //         Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
+        //         {
+        //             assert( Abc_ObjIsCi(pNode) );
+        //             Pi[i] = (int)(ABC_PTRINT_T)pNode->pCopy;
+        //             PiName[i] = Abc_ObjName(pNode);
+        //             num_pi++;
+        //         }
+        //     }
+        // }
 
         // get the miter of the two networks
         pMiter = Abc_NtkMiter( pNtk1, pNtk2, k+2, 0, 0, 0 );
@@ -602,17 +628,20 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
                     sprintf(filename, "cec_patch/rec_%d.v", num_mux);
                     fprintf(model, "%s\n", filename);
                     temp = fopen(filename, "w");
-                    fprintf(temp, "module rec_%d(", num_mux);
+                    fprintf(temp, "module rec_%d( ", num_mux);
+                    for ( i = 0; i < num_pi; i++ )
+                        fprintf(temp, "in%d, ", i);
+                    fprintf(temp, "out_rec );");
                     fprintf(f, "\nrec_%d rec_%d(", num_mux, num_mux);
                     for ( i = 0; i < num_pi; i++ )
                     {
-                        fprintf(temp, "\n\tinput  in%d,", i);
+                        fprintf(temp, "\ninput  in%d;", i);
                         fprintf(f, ".in%d(in%d), ", i, Pi[i]);
                     }
                     fprintf(f, ".out_rec(out_rec_%d));", k);
                     fprintf(f, "\nmux mux%d(.out_rec(out_rec_%d), .out(out%d), .patch_out(patch%d));", num_mux, k, k, k );
                     num_mux++;
-                    fprintf(temp, "\n\toutput out_rec\n);\n");
+                    fprintf(temp, "\noutput out_rec;");
                     fprintf(temp, "\nassign out_rec = (");  
                 }
                 else fprintf(temp, " |\n                 (");
@@ -653,9 +682,9 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
 
     fprintf(model, "cec_patch/patch.v");
     fclose(model);
-    fprintf(f, "\n\nendmodule\n\nmodule mux(\n\tinput  out_rec,\n\tinput  out,\n\toutput patch_out\n);\n");
+    fprintf(f, "\n\nendmodule\n\nmodule mux( out_rec, out, patch_out );\ninput  out_rec;\ninput  out;\noutput patch_out;\n");
     fprintf(f, "assign patch_out = out_rec ? ~out : out;\nendmodule\n");
-    fprintf(f, "\nmodule buff(\n\tinput  out,\n\toutput patch_out\n);\n");
+    fprintf(f, "\nmodule buff( out, patch_out );\ninput  out;\noutput patch_out;\n");
     fprintf(f, "assign patch_out = out;\nendmodule\n");
     fclose(f);
 }
