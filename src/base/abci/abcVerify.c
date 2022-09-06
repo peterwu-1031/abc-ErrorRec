@@ -470,47 +470,6 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
         int Pi[Abc_NtkCiNum(pNtk1)];
         char * PoName = Abc_ObjName(Abc_NtkCo(pNtk1,k));
 
-        // collect PIs in the cone
-        pNode = Abc_NtkCo(pNtk2, k);
-        vNodes = Abc_NtkNodeSupport( pNtk2, &pNode, 1 );
-        // set the PI numbers
-        Abc_NtkForEachCi( pNtk2, pNode, i )
-        pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
-        if ( Vec_PtrSize(vNodes) )
-        {
-            pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
-            if ( Abc_ObjIsCi(pNode) )
-            {
-                Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
-                {
-                    assert( Abc_ObjIsCi(pNode) );
-                    Pi[i] = (int)(ABC_PTRINT_T)pNode->pCopy;
-                    PiName[i] = Abc_ObjName(pNode);
-                    num_pi++;
-                }
-            }
-        }
-        // // collect PIs in the cone
-        // pNode = Abc_NtkCo(pNtk1, k);
-        // vNodes = Abc_NtkNodeSupport( pNtk1, &pNode, 1 );
-        // // set the PI numbers
-        // Abc_NtkForEachCi( pNtk1, pNode, i )
-        // pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
-        // if ( Vec_PtrSize(vNodes) )
-        // {
-        //     pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
-        //     if ( Abc_ObjIsCi(pNode) )
-        //     {
-        //         Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
-        //         {
-        //             assert( Abc_ObjIsCi(pNode) );
-        //             Pi[i] = (int)(ABC_PTRINT_T)pNode->pCopy;
-        //             PiName[i] = Abc_ObjName(pNode);
-        //             num_pi++;
-        //         }
-        //     }
-        // }
-
         // get the miter of the two networks
         pMiter = Abc_NtkMiter( pNtk1, pNtk2, k+2, 0, 0, 0 );
         if ( pMiter == NULL )
@@ -534,6 +493,28 @@ void Abc_NtkCecPatch( Abc_Ntk_t * pNtk1, Abc_Ntk_t * pNtk2, int nSeconds, int fV
         // Generate all error patterns. (currently no more than 10000 iterations)
         srand((unsigned) time(&t));
         // hash_table_init();
+     
+        // collect PIs in the cone
+        pNode = Abc_NtkCo(pNtk2, k);
+        vNodes = Abc_NtkNodeSupport( pNtk2, &pNode, 1 );
+        // set the PI numbers
+        Abc_NtkForEachCi( pNtk2, pNode, i )
+        pNode->pCopy = (Abc_Obj_t *)(ABC_PTRINT_T)i;
+        if ( Vec_PtrSize(vNodes) )
+        {
+            pNode = (Abc_Obj_t *)Vec_PtrEntry( vNodes, 0 );
+            if ( Abc_ObjIsCi(pNode) )
+            {
+                Vec_PtrForEachEntry( Abc_Obj_t *, vNodes, pNode, i )
+                {
+                    assert( Abc_ObjIsCi(pNode) );
+                    Pi[i] = (int)(ABC_PTRINT_T)pNode->pCopy;
+                    PiName[i] = Abc_ObjName(pNode);
+                    num_pi++;
+                }
+            }
+        }
+      
         while ( times < max_iter )
         {
             // random simulation
