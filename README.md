@@ -77,7 +77,6 @@ If the bug still persists, please provide the following information:
  1. The output of the `ldd` command run on the exeutable (e.g. `ldd abc`).
  1. Versions of relevant tools or packages used.
 
-
 ## Troubleshooting:
 
  1. If compilation does not start because of the cyclic dependency check, 
@@ -111,3 +110,25 @@ Unfortunately, there is no comprehensive regression test. Good luck!
 
 This system is maintained by Alan Mishchenko <alanmi@berkeley.edu>. Consider also 
 using ZZ framework developed by Niklas Een: https://bitbucket.org/niklaseen/abc-zz (or https://github.com/berkeley-abc/abc-zz)
+
+## Additional commands implemented by me:
+
+### cec -a netlist1.v netlist2.v 
+
+1. Do CEC and generate all error patterns if two circuits are nonequivalent.
+
+2. All output files will be generated in “cec_output” folder. 
+
+3. Filename.txt stores all names of files storing error patterns. 
+
+4. InputID.txt stores the relationship between inputs and patterns. 
+
+5. 0>1(1>0) means that netlist1 prints 0(1) and netlist2 prints 1(0).
+
+### cec -b netlist1.v netlist2.v
+
+1. Do CEC and generate all error patterns for every PO
+
+2. Generate a patch(patch.v) for netlist1 and several subcircuits in 'cec_patch' folder. (Similar to Cadence LEC ECO)
+
+3. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'. (Using cell library - lib/typical.lib)
