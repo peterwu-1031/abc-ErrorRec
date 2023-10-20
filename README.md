@@ -22,6 +22,12 @@ ABC is always changing but the current snapshot is believed to be stable.
 
 ### cec -b netlist1.v netlist2.v
 
+1. Do CEC and generate all error patterns for every PO
+
+2. Generate a patch(patch.v) for netlist1 and several subcircuits in 'cec_patch' folder. (Similar to Cadence LEC ECO)
+
+3. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'. (Using cell library - lib/typical.lib)
+
 ## Compiling:
 
 To compile ABC as a binary, download and unzip the code, then type `make`.
