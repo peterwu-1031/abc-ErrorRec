@@ -28,6 +28,7 @@ ABC is always changing but the current snapshot is believed to be stable.
 
 3. Users can do synthesis and technology mapping on patch.v by Yosys command 'tcl patch.tcl'. (Using cell library - lib/typical.lib)
 
+
 ## Compiling:
 
 To compile ABC as a binary, download and unzip the code, then type `make`.
