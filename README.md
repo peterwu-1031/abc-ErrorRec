@@ -9,7 +9,7 @@ ABC is always changing but the current snapshot is believed to be stable.
 ## Additional commands implemented by me (Yu-Cheng Wu):
 ### cec -a netlist1.v netlist2.v 
 * Do CEC and generate all error patterns if two circuits are nonequivalent.
-* All output files will be generated in “cec_output” folder. 
+* All output files will be generated in the “cec_output” folder. 
 * Filename.txt stores all names of files storing error patterns. 
 * InputID.txt stores the relationship between inputs and patterns.
 * 0>1(1>0) means that netlist1 prints 0(1) and netlist2 prints 1(0).
@@ -87,8 +87,8 @@ If the bug still persists, please provide the following information:
 
  1. ABC version (when it was downloaded from GitHub)
  1. Linux distribution and version (32-bit or 64-bit)
- 1. The exact command-line and error message when trying to run the tool
- 1. The output of the `ldd` command run on the exeutable (e.g. `ldd abc`).
+ 1. The exact command line and error message when trying to run the tool
+ 1. The output of the `ldd` command runs on the executable (e.g. `ldd abc`).
  1. Versions of relevant tools or packages used.
 
 ## Troubleshooting:
@@ -101,7 +101,7 @@ compile with `make ABC_USE_NO_READLINE=1`
 compile with `make ABC_USE_NO_PTHREADS=1`
     * See http://sourceware.org/pthreads-win32/ for pthreads on Windows
     * Precompiled DLLs are available from ftp://sourceware.org/pub/pthreads-win32/dll-latest
- 1. If compilation fails in file "src/base/main/libSupport.c", try the following:
+ 1. If compilation fails in the file "src/base/main/libSupport.c", try the following:
     * Remove "src/base/main/libSupport.c" from "src/base/main/module.make"
     * Comment out calls to `Libs_Init()` and `Libs_End()` in "src/base/main/mainInit.c"
  1. On some systems, readline requires adding '-lcurses' to Makefile.
@@ -109,11 +109,11 @@ compile with `make ABC_USE_NO_PTHREADS=1`
 The following comment was added by Krish Sundaresan:
 
 "I found that the code does compile correctly on Solaris if gcc is used (instead of 
-g++ that I was using for some reason). Also readline which is not available by default 
+g++ I was using for some reason). Also, readline which is not available by default 
 on most Sol10 systems, needs to be installed. I downloaded the readline-5.2 package 
 from sunfreeware.com and installed it locally. Also modified CFLAGS to add the local 
 include files for readline and LIBS to add the local libreadline.a. Perhaps you can 
-add these steps in the readme to help folks compiling this on Solaris."
+add these steps in the readme to help folks compile this on Solaris."
 
 The following tutorial is kindly offered by Ana Petkovska from EPFL:
 https://www.dropbox.com/s/qrl9svlf0ylxy8p/ABC_GettingStarted.pdf
